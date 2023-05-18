@@ -1,0 +1,89 @@
+service: aws-node-starter
+
+frameworkVersion: '2 || 3'
+
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  stage: dev
+  region: us-east-2
+
+
+functions:
+  authorizer:
+    handler: authorizer.handler
+
+  createNote:
+    handler: handler.createNote
+    environment:
+      NOTES_TABLE_NAME: !Ref NotesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt NotesTable.Arn
+    events:
+    - http: 
+        method: post
+        path: notes
+        authorizer: authorizer
+
+  updateNote:
+    handler: handler.updateNote
+    environment:
+      NOTES_TABLE_NAME: !Ref NotesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+    - http: 
+        method: put
+        path: notes/{id}
+        authorizer: authorizer
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: !GetAtt NotesTable.Arn
+
+  deleteNote:
+    handler: handler.deleteNote
+    environment:
+      NOTES_TABLE_NAME: !Ref NotesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+    - http: 
+        method: delete
+        path: notes/{id}
+        authorizer: authorizer
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+        Resource: !GetAtt NotesTable.Arn
+  
+  getAllNotes:
+    handler: handler.getAllNotes
+    environment:
+      NOTES_TABLE_NAME: !Ref NotesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+    - http: 
+        method: get
+        path: notes
+        authorizer:
+          name: userpool_authorizer
+          arn: !GetAtt CognitoUserPool
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt NotesTable.Arn
+
+plugins:
+  - serverless-iam-roles-per-function
+#adding cloudformation resource templates
+resources:
+  Resources:
+   ${file(resources.yml)}
